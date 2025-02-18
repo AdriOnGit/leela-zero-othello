@@ -43,7 +43,6 @@
 
 #include "FullBoard.h"
 #include "GTP.h"
-#include "KoState.h"
 #include "SGFParser.h"
 #include "Utils.h"
 
@@ -60,7 +59,7 @@ void SGFTree::init_state() {
 }
 
 // Returns the current state of the game.
-const KoState* SGFTree::get_state() const {
+const FastState* SGFTree::get_state() const {
     assert(m_initialized);
     return &m_state;
 }
@@ -80,7 +79,7 @@ const SGFTree* SGFTree::get_child(const size_t count) const {
 // just moves won't have any effect.
 GameState SGFTree::follow_mainline_state(const unsigned int movenum) const {
     const auto* link = this;
-    // This initializes a starting state from a KoState and
+    // This initializes a starting state from a FastState and
     // sets up the game history.
     GameState result(get_state());
 
@@ -174,7 +173,7 @@ void SGFTree::populate_states() {
         int bsize;
         strm >> bsize;
         // Checks if the board size that was found is equal to the one defined in BOARD_SIZE.
-        // If it's valid, then initialize the game with it + the default KOMI value.
+        // If it's valid, then initialize the game with it.
         if (bsize == BOARD_SIZE) {
             // Assume default komi in config.h if not specified
             m_state.init_game(bsize, KOMI);
@@ -508,7 +507,7 @@ std::string SGFTree::state_to_string(GameState& pstate, const int compcolor) {
     header.append("(;GM[2]FF[4]RU[Chinese]");
     header.append("DT[" + std::string(timestr) + "]");
     header.append("SZ[" + std::to_string(size) + "]");
-    header.append("KM[" + str(boost::format("%.1f") % komi) + "]");
+    header.append("KM[" + str(boost::format("%1.f") % komi) + "]");
     header.append(state->get_timecontrol().to_text_sgf());
 
     // Program name.
@@ -584,12 +583,12 @@ std::string SGFTree::state_to_string(GameState& pstate, const int compcolor) {
 
     // If no player resigned, calculate the game score.
     if (!state->has_resigned()) {
-        float score = state->final_score();
+        auto score = state->final_score();
 
-        if (score > 0.0f) {
-            header.append("RE[B+" + str(boost::format("%.1f") % score) + "]");
-        } else if (score < 0.0f) {
-            header.append("RE[W+" + str(boost::format("%.1f") % -score) + "]");
+        if (score.first > score.second) {
+            header.append("RE[W+" + str(boost::format("%d") % score.first) + "]");
+        } else if (score.first < score.second) {
+            header.append("RE[W+" + str(boost::format("%d") % score.second) + "]");
         } else {
             header.append("RE[0]");
         }

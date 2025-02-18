@@ -279,8 +279,7 @@ void Training::dump_training(const int winner_color, OutputChunker& outchunk) {
             }
             // NUM_INTERSECTIONS % 4 = 1 so the last bit goes by itself
             // for odd sizes
-            assert(plane.size() % 4 == 1);
-            out << plane[plane.size() - 1];
+            assert(plane.size() % 4 == 0);
             out << std::dec << std::endl;
         }
         // The side to move planes can be compactly encoded into a single

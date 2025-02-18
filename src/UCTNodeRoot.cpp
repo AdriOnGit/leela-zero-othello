@@ -40,7 +40,6 @@
 #include "FastBoard.h"
 #include "FastState.h"
 #include "GTP.h"
-#include "KoState.h"
 #include "Random.h"
 #include "UCTNode.h"
 #include "Utils.h"
@@ -56,43 +55,6 @@ UCTNode* UCTNode::get_first_child() const {
     }
 
     return m_children.front().get();
-}
-
-void UCTNode::kill_superkos(const GameState& state) {
-    UCTNodePointer* pass_child = nullptr;
-    size_t valid_count = 0;
-
-    for (auto& child : m_children) {
-        auto move = child->get_move();
-        if (move != FastBoard::PASS) {
-            KoState mystate = state;
-            mystate.play_move(move);
-
-            // Checks if the superko rule was broken.
-            if (mystate.superko()) {
-                // Don't delete nodes for now, just mark them invalid.
-                child->invalidate();
-            }
-        } else {
-            pass_child = &child;
-        }
-        if (child->valid()) {
-            valid_count++;
-        }
-    }
-
-    if (valid_count > 1 && pass_child
-        && !state.is_move_legal(state.get_to_move(), FastBoard::PASS)) {
-        // Remove the PASS node according to "avoid" -- but only if there are
-        // other valid nodes left.
-        (*pass_child)->invalidate();
-    }
-
-    // Now do the actual deletion.
-    m_children.erase(
-        std::remove_if(begin(m_children), end(m_children),
-                       [](const auto& child) { return !child->valid(); }),
-        end(m_children));
 }
 
 // Dirichlet noise technique: stochastic exploration during the node selection phase of the search tree.
@@ -187,8 +149,7 @@ UCTNode* UCTNode::get_nopass_child(FastState& state) const {
            we only have unreasonable moves to pick, like filling eyes.
            Note that this knowledge isn't required by the engine,
            we require it because we're overruling its moves. */
-        if (child->m_move != FastBoard::PASS
-            && !state.board.is_eye(state.get_to_move(), child->m_move)) {
+        if (child->m_move != FastBoard::PASS) {
             return child.get();
         }
     }
@@ -236,9 +197,7 @@ void UCTNode::prepare_root_node(Network& network, const int color,
     // all children of the root are inflated, so do that.
     inflate_all_children();
 
-    // Remove illegal moves, so the root move list is correct.
-    // This also removes a lot of special cases.
-    kill_superkos(root_state);
+    //kill_passes(root_state);
 
     if (cfg_noise) {
         // Adjust the Dirichlet noise's alpha constant to the board size

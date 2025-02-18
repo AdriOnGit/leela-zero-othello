@@ -134,11 +134,10 @@ bool UCTSearch::advance_to_new_rootstate() {
         return false;
     }
 
-    // Checks if the value of komi has changed between the previous root state and the current one.
-    if (m_rootstate.get_komi() != m_last_rootstate->get_komi()) {
+    if (m_rootstate.get_komi() != m_last_rootstate->get_komi()){
         return false;
     }
-
+    
     auto depth =
         int(m_rootstate.get_movenum() - m_last_rootstate->get_movenum());
 
@@ -272,7 +271,8 @@ SearchResult UCTSearch::play_simulation(GameState& currstate,
     if (node->expandable()) {
         if (currstate.get_passes() >= 2) {
             auto score = currstate.final_score();
-            result = SearchResult::from_score(score);
+            auto relative_score = score.first - score.second;
+            result = SearchResult::from_score(relative_score);
         } else {
             float eval;
             const auto had_children = node->has_children();
@@ -281,8 +281,6 @@ SearchResult UCTSearch::play_simulation(GameState& currstate,
             // another thread requests draining the search.
             const auto success = node->create_children(
                 m_network, m_nodes, currstate, eval, get_min_psa_ratio());
-            // The node didn't have any children and the creation of a new child was successful.
-            // The simulation ends and the result is returned.
             if (!had_children && success) {
                 result = SearchResult::from_eval(eval);
                 new_node = true;
@@ -298,11 +296,7 @@ SearchResult UCTSearch::play_simulation(GameState& currstate,
 
         // Play the move.
         currstate.play_move(move);
-        if (move != FastBoard::PASS && currstate.superko()) {
-            next->invalidate();
-        } else { // Recursion of the simulation.
-            result = play_simulation(currstate, next);
-        }
+        result = play_simulation(currstate, next);
     }
 
     // New node was updated in create_children.
@@ -537,103 +531,104 @@ int UCTSearch::get_best_move(const passflag_t passflag) {
         first_child->first_visit() ? 0.5f : first_child->get_raw_eval(color);
 
     // do we want to fiddle with the best move because of the rule set?
-    if (passflag & UCTSearch::NOPASS) {
-        // were we going to pass?
-        // If the best move is to pass, then look for a better move.
-        if (bestmove == FastBoard::PASS) {
-            UCTNode* nopass = m_root->get_nopass_child(m_rootstate);
+    // if (passflag & UCTSearch::NOPASS) {
+    //     // were we going to pass?
+    //     // If the best move is to pass, then look for a better move.
+    //     if (bestmove == FastBoard::PASS) {
+    //         UCTNode* nopass = m_root->get_nopass_child(m_rootstate);
 
-            if (nopass != nullptr) {
-                myprintf("Preferring not to pass.\n");
-                // Alternative move set as best.
-                bestmove = nopass->get_move();
-                if (nopass->first_visit()) {
-                    // Move that was never visited, evaluate to 1.
-                    besteval = 1.0f;
-                } else {
-                    besteval = nopass->get_raw_eval(color);
-                }
-            } else {
-                myprintf("Pass is the only acceptable move.\n");
-            }
-        }
-    } else if (!cfg_dumbpass) {
-        const auto relative_score =
-            (color == FastBoard::BLACK ? 1 : -1) * m_rootstate.final_score();
-        if (bestmove == FastBoard::PASS) {
-            // Either by forcing or coincidence passing is
-            // on top...check whether passing loses instantly
-            // do full count including dead stones.
-            // In a reinforcement learning setup, it is possible for the
-            // network to learn that, after passing in the tree, the two last
-            // positions are identical, and this means the position is only won
-            // if there are no dead stones in our own territory (because we use
-            // Trump-Taylor scoring there). So strictly speaking, the next
-            // heuristic isn't required for a pure RL network, and we have
-            // a commandline option to disable the behavior during learning.
-            // On the other hand, with a supervised learning setup, we fully
-            // expect that the engine will pass out anything that looks like
-            // a finished game even with dead stones on the board (because the
-            // training games were using scoring with dead stone removal).
-            // So in order to play games with a SL network, we need this
-            // heuristic so the engine can "clean up" the board. It will still
-            // only clean up the bare necessity to win. For full dead stone
-            // removal, kgs-genmove_cleanup and the NOPASS mode must be used.
+    //         if (nopass != nullptr) {
+    //             myprintf("Preferring not to pass.\n");
+    //             // Alternative move set as best.
+    //             bestmove = nopass->get_move();
+    //             if (nopass->first_visit()) {
+    //                 // Move that was never visited, evaluate to 1.
+    //                 besteval = 1.0f;
+    //             } else {
+    //                 besteval = nopass->get_raw_eval(color);
+    //             }
+    //         } else {
+    //             myprintf("Pass is the only acceptable move.\n");
+    //         }
+    //     }
+    // } else if (!cfg_dumbpass) {
+    //     auto value_score = m_rootstate.final_score();
+    //     const auto relative_score =
+    //         (color == FastBoard::BLACK ? 1 : -1) * (value_score.first-value_score.second);
+    //     if (bestmove == FastBoard::PASS) {
+    //         // Either by forcing or coincidence passing is
+    //         // on top...check whether passing loses instantly
+    //         // do full count including dead stones.
+    //         // In a reinforcement learning setup, it is possible for the
+    //         // network to learn that, after passing in the tree, the two last
+    //         // positions are identical, and this means the position is only won
+    //         // if there are no dead stones in our own territory (because we use
+    //         // Trump-Taylor scoring there). So strictly speaking, the next
+    //         // heuristic isn't required for a pure RL network, and we have
+    //         // a commandline option to disable the behavior during learning.
+    //         // On the other hand, with a supervised learning setup, we fully
+    //         // expect that the engine will pass out anything that looks like
+    //         // a finished game even with dead stones on the board (because the
+    //         // training games were using scoring with dead stone removal).
+    //         // So in order to play games with a SL network, we need this
+    //         // heuristic so the engine can "clean up" the board. It will still
+    //         // only clean up the bare necessity to win. For full dead stone
+    //         // removal, kgs-genmove_cleanup and the NOPASS mode must be used.
 
-            // Do we lose by passing?
-            if (relative_score < 0.0f) {
-                myprintf("Passing loses :-(\n");
-                // Find a valid non-pass move.
-                UCTNode* nopass = m_root->get_nopass_child(m_rootstate);
-                if (nopass != nullptr) {
-                    myprintf("Avoiding pass because it loses.\n");
-                    bestmove = nopass->get_move();
-                    if (nopass->first_visit()) {
-                        besteval = 1.0f;
-                    } else {
-                        besteval = nopass->get_raw_eval(color);
-                    }
-                } else {
-                    myprintf("No alternative to passing.\n");
-                }
-            } else if (relative_score > 0.0f) {
-                myprintf("Passing wins :-)\n");
-            } else {
-                myprintf("Passing draws :-|\n");
-                // Find a valid non-pass move.
-                const auto nopass = m_root->get_nopass_child(m_rootstate);
-                if (nopass != nullptr && !nopass->first_visit()) {
-                    const auto nopass_eval = nopass->get_raw_eval(color);
-                    if (nopass_eval > 0.5f) {
-                        myprintf("Avoiding pass because there could be a winning alternative.\n");
-                        bestmove = nopass->get_move();
-                        besteval = nopass_eval;
-                    }
-                }
-                if (bestmove == FastBoard::PASS) {
-                    myprintf("No seemingly better alternative to passing.\n");
-                }
-            }
-        } else if (m_rootstate.get_last_move() == FastBoard::PASS) {
-            // Opponents last move was passing.
-            // We didn't consider passing. Should we have and
-            // end the game immediately?
+    //         // Do we lose by passing?
+    //         if (relative_score < 0.0f) {
+    //             myprintf("Passing loses :-(\n");
+    //             // Find a valid non-pass move.
+    //             UCTNode* nopass = m_root->get_nopass_child(m_rootstate);
+    //             if (nopass != nullptr) {
+    //                 myprintf("Avoiding pass because it loses.\n");
+    //                 bestmove = nopass->get_move();
+    //                 if (nopass->first_visit()) {
+    //                     besteval = 1.0f;
+    //                 } else {
+    //                     besteval = nopass->get_raw_eval(color);
+    //                 }
+    //             } else {
+    //                 myprintf("No alternative to passing.\n");
+    //             }
+    //         } else if (relative_score > 0.0f) {
+    //             myprintf("Passing wins :-)\n");
+    //         } else {
+    //             myprintf("Passing draws :-|\n");
+    //             // Find a valid non-pass move.
+    //             const auto nopass = m_root->get_nopass_child(m_rootstate);
+    //             if (nopass != nullptr && !nopass->first_visit()) {
+    //                 const auto nopass_eval = nopass->get_raw_eval(color);
+    //                 if (nopass_eval > 0.5f) {
+    //                     myprintf("Avoiding pass because there could be a winning alternative.\n");
+    //                     bestmove = nopass->get_move();
+    //                     besteval = nopass_eval;
+    //                 }
+    //             }
+    //             if (bestmove == FastBoard::PASS) {
+    //                 myprintf("No seemingly better alternative to passing.\n");
+    //             }
+    //         }
+    //     } else if (m_rootstate.get_last_move() == FastBoard::PASS) {
+    //         // Opponents last move was passing.
+    //         // We didn't consider passing. Should we have and
+    //         // end the game immediately?
 
-            if (!m_rootstate.is_move_legal(color, FastBoard::PASS)) {
-                myprintf("Passing is forbidden, I'll play on.\n");
-            } else if (relative_score < 0.0f) {
-                myprintf("Passing loses, I'll play on.\n");
-            } else if (relative_score > 0.0f) {
-                myprintf("Passing wins, I'll pass out.\n");
-                bestmove = FastBoard::PASS;
-            } else {
-                myprintf("Passing draws, make it depend on evaluation.\n");
-                if (besteval < 0.5f) {
-                    bestmove = FastBoard::PASS;
-                }
-            }
-        }
-    }
+    //         if (!m_rootstate.is_move_legal(color, FastBoard::PASS)) {
+    //             myprintf("Passing is forbidden, I'll play on.\n");
+    //         } else if (relative_score < 0.0f) {
+    //             myprintf("Passing loses, I'll play on.\n");
+    //         } else if (relative_score > 0.0f) {
+    //             myprintf("Passing wins, I'll pass out.\n");
+    //             bestmove = FastBoard::PASS;
+    //         } else {
+    //             myprintf("Passing draws, make it depend on evaluation.\n");
+    //             if (besteval < 0.5f) {
+    //                 bestmove = FastBoard::PASS;
+    //             }
+    //         }
+    //     }
+    // }
 
     // if we aren't passing, should we consider resigning?
     if (bestmove != FastBoard::PASS) {
@@ -887,6 +882,8 @@ int UCTSearch::think(const int color, const passflag_t passflag) {
     }
 
     m_rootstate.stop_clock(color);
+    m_root->has_children();
+    
     if (!m_root->has_children()) {
         return FastBoard::PASS;
     }
