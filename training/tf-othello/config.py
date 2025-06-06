@@ -32,7 +32,7 @@ white_networks = leela_files + "/white_networks"
 # white_networks files path
 path = white_networks + "/leelaz-model"
 # leelalogs path
-leela_logs = leela_files
+leela_logs = leela_files + "/leelalogs"
 # network archives path
 save_gen_dir = leela_files + "/network_generations"
 
@@ -44,6 +44,12 @@ al_sgf = sgf_archive + "/auto_leela_sgf"
 ap_sgf = sgf_archive + "/autoplay_sgf"
 # matchmaker sgf archive
 matchmaker_sgf = sgf_archive + "/matchmaker_sgf"
+# compare-checkpoint sgf archive
+compare_chkpt_sgf = sgf_archive + "/comp_chkpt_sgf"
+# edax sgf archive
+edax_sgf = sgf_archive + "/edax_sgf"
+# egaroucid sgf archive
+egaroucid_sgf = sgf_archive + "/egaroucid_sgf"
 
 # auto-leela path
 auto_leela = tf_othello + "/auto-leela.py"

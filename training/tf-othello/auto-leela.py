@@ -9,6 +9,22 @@ def skip_credentials(process):
     for x in range(5):
         line=process.stdout.readline()
 
+def sgf_edit(sgf, num_moves):
+    # Read the content of the SGF file
+    with open(sgf, 'r') as file:
+        sgf_content = file.read()
+
+    # Replace 'GM[1]' with 'GM[2]' for Othello
+    updated_sgf_content = sgf_content.replace('GM[1]', 'GM[2]')
+
+    # Append a comment with match result and moves number
+    comment = f'Match ended with {num_moves} moves.'
+    updated_sgf_content += f"\n(;C[{comment}])"  # Append the comment as a new node
+
+    # Write the updated content back to the same file
+    with open(sgf, 'w') as file:
+        file.write(updated_sgf_content)
+
 def play(process, turn_player):
 
     process.stdin.write('genmove '+turn_player+'\n')
@@ -142,6 +158,9 @@ for i in range(max, max+num_iterations):
     p.stdin.write('quit\n')
     p.stdin.flush()
 
+    # Edits the SGF
+    sgf_edit(f"{i}_al.sgf", num_moves)
+
 time.sleep(10)
 
 # Copies the matches in Training
@@ -153,8 +172,7 @@ os.makedirs(full_path, exist_ok=True)
 # Moves the matches into the new directory
 os.system(f"mv tmp* {full_path}")
 # Zips the directory
-os.system(f"tar -czvf {full_path}.tar.gz {full_path}")
-os.system(f"cd {al_sgf} && tar -czvf {sgf_dir}.tar.gz {sgf_dir}")
+os.system(f"cd {archive_path} && tar -czf {matches_dir}.tar.gz {matches_dir}")
 # Deletes the zip directory
 os.system(f"rm -r {full_path}")
 
@@ -165,7 +183,7 @@ os.makedirs(full_path, exist_ok=True)
 # Moves the matches into the new directory
 os.system(f"mv *.sgf {full_path}")
 # Zips the directory
-os.system(f"tar -czvf {full_path}.tar.gz {full_path}")
+os.system(f"cd {al_sgf} && tar -czf {sgf_dir}.tar.gz {sgf_dir}")
 # Deletes the zip directory
 os.system(f"rm -r {full_path}")
 

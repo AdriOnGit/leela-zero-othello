@@ -150,7 +150,7 @@ void FastBoard::reset_board(const int size) {
                 m_state[vertex] = BLACK;
                 center_piece_position[count++] = vertex;
             }
-            else if (i == size / 2 && j == size / 2 - 1 || i == size / 2 - 1 && j == size / 2 + 1) { // Initial black stones
+            else if (i == size / 2 && j == size / 2 - 1 || i == size / 2 - 1 && j == size / 2) { // Initial black stones
                 m_state[vertex] = WHITE;
                 center_piece_position[count++] = vertex;
             }

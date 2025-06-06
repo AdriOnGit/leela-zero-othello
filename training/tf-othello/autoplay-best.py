@@ -2,6 +2,7 @@ import subprocess
 import os
 import re
 import shutil
+import csv
 from functools import cmp_to_key
 from config import *
 
@@ -11,9 +12,8 @@ black_net_prefix = best_network
 directory = os.fsencode(white_networks)
 
 results_file = "autoplay-best-results.csv"
-gens_loss_file = "gen_loss.txt"
 
-def save_results(generation. steps, network, opponent, games_played, winrate, result):
+def save_results(generation, steps, network, opponent, games_played, winrate, result):
     file_exists = os.path.isfile(results_file)
     with open(results_file, "a", newline="", encoding="utf-8") as f:
         writer = csv.DictWriter(f, fieldnames=["generation", "steps", "network", "opponent", "games_played", "winrate", "result"])
@@ -29,13 +29,21 @@ def save_results(generation. steps, network, opponent, games_played, winrate, re
             "result": result
         })
 
-def save_gens_loss(gens_loss):
-    with open(gens_loss_file, 'w') as f:
-        f.write(str(gens_loss))
+def sgf_edit(sgf, num_moves, match_result):
+    # Read the content of the SGF file
+    with open(sgf, 'r') as file:
+        sgf_content = file.read()
 
-def load_gens_loss():
-    with open(gens_loss_file, 'r') as f:
-        return int(f.read())
+    # Replace 'GM[1]' with 'GM[2]' for Othello
+    updated_sgf_content = sgf_content.replace('GM[1]', 'GM[2]')
+
+    # Append a comment with match result and moves number
+    comment = f'Match ended with {num_moves} moves with {match_result}.'
+    updated_sgf_content += f"\n(;C[{comment}])"  # Append the comment as a new node
+
+    # Write the updated content back to the same file
+    with open(sgf, 'w') as file:
+        file.write(updated_sgf_content)
 
 def skip_credentials(process):
     for x in range(5):
@@ -77,7 +85,7 @@ def test_network(black_net, white_net, number_of_games):
         try:
             print(f'Iteration number {game}')
             black = subprocess.Popen(
-                [leelaz, '-v', '100','-q','-w', black_net],
+                [leelaz, '-v', '150','-q','-w', black_net],
                 stdout=subprocess.PIPE,
                 stdin=subprocess.PIPE,
                 text=True
@@ -85,7 +93,7 @@ def test_network(black_net, white_net, number_of_games):
             skip_credentials(black)
 
             white = subprocess.Popen(
-                [leelaz, '-v', '100','-q','-w', white_net],
+                [leelaz, '-v', '150','-q','-w', white_net],
                 stdout=subprocess.PIPE,
                 stdin=subprocess.PIPE,
                 text=True
@@ -123,8 +131,10 @@ def test_network(black_net, white_net, number_of_games):
                     if turn_player=='black':
                         winner='white'
                         white_wins+=1
+                        match_result='Black resigned'
                     else:
                         winner='black'
+                        match_result='White resigned'
                     break
 
                 if "pass" in new_move:
@@ -157,7 +167,7 @@ def test_network(black_net, white_net, number_of_games):
                     winner='white'
 
             # Prints the sgf file of the match
-            command = f'printsgf > {game}_ap.sgf\n'
+            command = f'printsgf {game}_ap.sgf\n'
             white.stdin.write(command)
             white.stdin.flush()
 
@@ -167,8 +177,11 @@ def test_network(black_net, white_net, number_of_games):
             white.stdin.flush()
             black.stdin.write('quit\n')
             black.stdin.flush()
+            white.wait()
             
-
+            # Edits the SGF
+            sgf_edit(f"{game}_ap.sgf", num_moves, match_result)
+            
             #Skip network if it's already won or lost
             if (white_wins/(number_of_games))*100>=55 and game+1!=number_of_games:
                 number_of_games=game+1
@@ -247,12 +260,12 @@ for item in white_networks:
 
     # If there is no best network play 400 matches against current
     if promoted_network == None:
-        winrate = test_network(current_network, white_net, 400)
+        winrate, game = test_network(current_network, white_net, 400)
         print(f"400 games against the current best network\nFinal winrate:{winrate}")
 
         # Save the results of the matches in the csv file
         result = "Win + Promotion" if winrate >= 55 else "Loss"
-        save_results(num_generations, numerello, 2000*step_counter, "best", f"{game}/400", round(winrate,2), result)
+        save_results(num_generations, numerello, 3000*step_counter, "best", f"{game}/400", round(winrate,2), result)
 
         # Creates the directory to zip for the sgf files 
         sgf_dir = f"best_vs_{numerello}_400"
@@ -261,7 +274,7 @@ for item in white_networks:
         # Moves the matches into the new directory
         os.system(f"mv *.sgf {full_path}")
         # Zips the directory
-        os.system(f"cd {ap_sgf} && tar -czvf {sgf_dir}.tar.gz {sgf_dir}")
+        os.system(f"cd {gen_dir_path} && tar -czvf {sgf_dir}.tar.gz {sgf_dir}")
         # Deletes the zip directory
         os.system(f"rm -r {full_path}")
 
@@ -270,12 +283,12 @@ for item in white_networks:
             print(f"The new network has been promoted with a winrate of {winrate}")
 
     else: # If there is a best network play 200 matches against current and 200 against best
-        current_vs_new_winrate = test_network(current_network, white_net, 200)
+        current_vs_new_winrate, game = test_network(current_network, white_net, 200)
         print(f"200 games against the current best network.\nFinal winrate:{current_vs_new_winrate}")
 
         # Save the results of the matches in the csv file
         result = "Win" if current_vs_new_winrate >= 55 else "Loss"
-        save_results(num_generations, numerello, 2000*step_counter, "best", f"{game}/200", round(current_vs_new_winrate, 2), result)
+        save_results(num_generations, numerello, 3000*step_counter, "best", f"{game}/200", round(current_vs_new_winrate, 2), result)
         
         # Creates the directory to zip for the sgf files 
         sgf_dir = f"best_vs_{numerello}_200"
@@ -284,7 +297,7 @@ for item in white_networks:
         # Moves the matches into the new directory
         os.system(f"mv *.sgf {full_path}")
         # Zips the directory
-        os.system(f"cd {ap_sgf} && tar -czvf {sgf_dir}.tar.gz {sgf_dir}")
+        os.system(f"cd {gen_dir_path} && tar -czvf {sgf_dir}.tar.gz {sgf_dir}")
         # Deletes the zip directory
         os.system(f"rm -r {full_path}")
 
@@ -297,7 +310,7 @@ for item in white_networks:
             result = "Win"
         else:
             result = "Loss"
-        save_results(num_generations, numerello, 2000*step_counter, "promoted", f"{game}/200", round(best_vs_new_winrate,2), result)
+        save_results(num_generations, numerello, 3000*step_counter, "promoted", f"{game}/200", round(best_vs_new_winrate,2), result)
         
         #ID of the current promoted network model
         _,promoted_num=split_str(promoted_network)
@@ -309,7 +322,7 @@ for item in white_networks:
         # Moves the matches into the new directory
         os.system(f"mv *.sgf {full_path}")
         # Zips the directory
-        os.system(f"cd {ap_sgf} && tar -czvf {sgf_dir}.tar.gz {sgf_dir}")
+        os.system(f"cd {gen_dir_path} && tar -czvf {sgf_dir}.tar.gz {sgf_dir}")
         # Deletes the zip directory
         os.system(f"rm -r {full_path}")
 
@@ -320,12 +333,7 @@ for item in white_networks:
             print(f"Current vs new: {current_vs_new_winrate}")
             print(f"Best vs new: {best_vs_new_winrate}")
 
-
-gens_loss = load_gens_loss()
-
 if promoted_network == None:
-    if gens_loss == 5:
-        
     promoted_network = black_net
     
 print("The promoted network is "+promoted_network)

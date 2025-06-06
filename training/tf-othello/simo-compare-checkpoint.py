@@ -6,24 +6,34 @@ import csv
 from functools import cmp_to_key
 from config import *
 
-# Path to the best-network.txt
-black_net_prefix = best_network
-
-results_file = "best-matchmaker-results.csv"
-
-def save_results(generation, opponent, games_played, winrate, result):
+def save_results(generation, opponent, winrate, result):
     file_exists = os.path.isfile(results_file)
     with open(results_file, "a", newline="", encoding="utf-8") as f:
-        writer = csv.DictWriter(f, fieldnames=["generation", "opponent", "games_played", "winrate", "result"])
+        writer = csv.DictWriter(f, fieldnames=["generation", "opponent", "winrate", "result"])
         if not file_exists:
             writer.writeheader()
         writer.writerow({
             "generation": generation,
             "opponent": opponent,
-            "games_played": games_played,
-            "winrate": opponent_winrate,
+            "winrate": winrate,
             "result": result
         })
+
+def sgf_edit(sgf, num_moves, match_result):
+    # Read the content of the SGF file
+    with open(sgf, 'r') as file:
+        sgf_content = file.read()
+
+    # Replace 'GM[1]' with 'GM[2]' for Othello
+    updated_sgf_content = sgf_content.replace('GM[1]', 'GM[2]')
+
+    # Append a comment with match result and moves number
+    comment = f'Match ended with {num_moves} moves with {match_result}.'
+    updated_sgf_content += f"\n(;C[{comment}])"  # Append the comment as a new node
+
+    # Write the updated content back to the same file
+    with open(sgf, 'w') as file:
+        file.write(updated_sgf_content)
 
 def skip_credentials(process):
     for x in range(5):
@@ -54,18 +64,19 @@ def play(process, turn_player, move):
     wait_for_prompt(process)
     return new_move
 
-def test_network(black_net, white_net, number_of_games):
+def test_network(black_net, white_net, number_of_games, b_or_w):
+
+    print(f"Black player: {black_net}")
+    print(f"White player: {white_net}")
 
     white_wins=0
-    print(black_net)
-    print(white_net)
     game=0
 
     while game<number_of_games:
         try:
             print(f'Iteration number {game}')
             black = subprocess.Popen(
-                [leelaz, '-v', '100','-q','-w', black_net],
+                [leelaz, '-v', '150','-q','-w', black_net],
                 stdout=subprocess.PIPE,
                 stdin=subprocess.PIPE,
                 text=True
@@ -73,7 +84,7 @@ def test_network(black_net, white_net, number_of_games):
             skip_credentials(black)
 
             white = subprocess.Popen(
-                [leelaz, '-v', '100','-q','-w', white_net],
+                [leelaz, '-v', '150','-q','-w', white_net],
                 stdout=subprocess.PIPE,
                 stdin=subprocess.PIPE,
                 text=True
@@ -82,7 +93,8 @@ def test_network(black_net, white_net, number_of_games):
 
             turn_player='black'
             winner=''
-            
+            match_result=''
+
             # Play first move (works differently than the others)
             wait_for_prompt(black)
             black.stdin.write('genmove '+turn_player+'\n')
@@ -96,7 +108,7 @@ def test_network(black_net, white_net, number_of_games):
             opponent=black
             num_moves=1
             while True:
-                
+
                 new_move=play(player,turn_player,move)
                 num_moves+=1
                 #print("Played "+move+", now playing "+new_move)
@@ -111,8 +123,10 @@ def test_network(black_net, white_net, number_of_games):
                     if turn_player=='black':
                         winner='white'
                         white_wins+=1
+                        match_result='Black resigned'
                     else:
                         winner='black'
+                        match_result='White resigned'
                     break
 
                 if "pass" in new_move:
@@ -145,7 +159,7 @@ def test_network(black_net, white_net, number_of_games):
                     winner='white'
 
             # Prints the sgf file of the match
-            command = f'printsgf {game}.sgf\n'
+            command = f'printsgf simo_b_or_w_checkpoint_{game}.sgf\n'
             white.stdin.write(command)
             white.stdin.flush()
 
@@ -155,82 +169,75 @@ def test_network(black_net, white_net, number_of_games):
             white.stdin.flush()
             black.stdin.write('quit\n')
             black.stdin.flush()
-            
+            white.wait()
 
-            #Skip network if it's already won or lost
-            if (white_wins/(number_of_games))*100>=55 and game+1!=number_of_games:
-                number_of_games=game+1
-                print("White network has already reached threshold, skipping")
-                break
-            if ((game+1-white_wins)/(number_of_games))*100>=55 and game+1!=number_of_games:
-                number_of_games=game+1
-                print("White network can't reach threshold, skipping")
-                break
+            # Edits the SGF
+            sgf_edit(f"simo_b_or_w_checkpoint_{game}.sgf", num_moves, match_result)
+
             game+=1
         except OSError as e:
             print(f"An error occured, rerunning iteration number {game}")
             print(e)
-    return (white_wins/(number_of_games))*100, game
 
-def split_str(str1):
-    met_number=False
-    index=-1
-    for i in range(len(str1) - 1, -1, -1):
-        if str1[i].isnumeric():
-            met_number=True
-        if not str1[i].isnumeric() and met_number:
-            index=i
-            break
-    return (str1[:index], int(str1[index+1:len(str1)-4]))
-
-def str_sort(str1, str2):
-    prefix_str1, number_str1 = split_str(str1)
-    prefix_str2, number_str2 = split_str(str2)
-    if number_str1<number_str2:
-        return -1
-    elif number_str1>number_str2:
-        return 1
-    if len(prefix_str1)<len(prefix_str2):
-        return -1
-    elif len(prefix_str1)>len(prefix_str2):
-        return 1
-    return 0
-
-black_net= black_net_prefix+".txt"
-# Ask for the path
-while True:
-    white_net = input("Inserire il path del network:")
-    if not os.path.exists(white_net):
-        print("Path non valido!")
-        continue
+    if b_or_w == 'b':
+        return (white_wins/(number_of_games))*100
     else:
-        break
+        return 100.0 - (white_wins/(number_of_games))*100
 
-#ID of the current white network model
-numero_re = re.search(r'\d+', white_net)
-numerello = numero_re.group()
+while True:
+    num_gen = int(input("Checkpoint generation: "))
+    if num_gen in [5, 25, 50, 75, 100, 125, 150, 175, 200]:
+        break
+    print("Insert valid checkpoint generation")
+
+while True:
+    b_or_w = input("Checkpoint will play as b or w: ")
+    if b_or_w in ['b', 'w']:
+        break
+    print("Insert valid character (b or w)")
+
+results_file = f"simo_{num_gen}gen_{b_or_w}.csv"
+simo_dir = "/home/epi/storage/generazioni_reti_alt"
+black_net = save_gen_dir + f"/{num_gen}/{num_gen}gen.txt"
 
 # Cretes the sgf archives directory
 os.makedirs(sgf_archive, exist_ok=True)
-os.makedirs(matchmaker_sgf, exist_ok=True)
+os.makedirs(compare_chkpt_sgf, exist_ok=True)
 
 # Create the main directory for this generation's sgf files
-num_generations = len([f for f in os.listdir(save_gen_dir) if f[0].isdigit()]) + 1
-gen_dir = f"{num_generations}gen"
-gen_dir_path = matchmaker_sgf + f"/{gen_dir}"
+gen_dir = f"simo_{num_gen}gen_{b_or_w}"
+gen_dir_path = compare_chkpt_sgf + f"/{gen_dir}"
 os.makedirs(gen_dir_path, exist_ok=True)
 
-# Play 400 matches against the best network
-winrate, game = test_network(black_net, white_net, 400)
-print(f"400 games against the current best network\nFinal winrate:{winrate}")
+max_gen = 150
+gen_counter = 1
 
-# Moves the sgf matches into archives
-os.system(f"mv *.sgf {gen_dir_path}")
-# Zips the directory
-os.system(f"cd {matchmaker_sgf} && tar -czvf {gen_dir}.tar.gz {gen_dir}")
-# Deletes the zip directory
-os.system(f"rm -r {gen_dir_path}")
+# Play 100 matches against everyone
+while gen_counter <= max_gen:
 
-# Save the results of the matches in the csv file
-result = "Best wins" if winrate >= 55 else "Best loses"
-save_results(num_generations, numerello, f"{game}/400", round(winrate,2), result)
+    if gen_counter <= 6:
+        white_net = simo_dir + f"/{gen_counter}gen.txt"
+    else:
+        white_net = simo_dir + f"/{gen_counter}/{gen_counter}gen.txt"
+
+    if b_or_w == 'b':
+        winrate = test_network(black_net, white_net, 50, b_or_w)
+    else:
+        winrate = test_network(white_net, black_net, 50, b_or_w)
+
+    # Save the results of the matches in the csv file
+    result = f"{num_gen} wins" if winrate <= 55 else f"{num_gen} loses"
+    save_results(f"{num_gen}gen", f"{gen_counter}gen", round(winrate,2), result)
+
+    # print(f"100 games against {gen_counter}gen.\nFinal winrate:{winrate}")
+
+    # Directory for this match
+    save_path = f"simo{num_gen}gen_vs_{gen_counter}gen"
+    # Make directory for this match
+    os.makedirs(save_path, exist_ok=True)
+    # Move the sgf into the directory
+    os.system(f"mv simo*.sgf {save_path}")
+    # Move the match directory to the main directory
+    os.system(f"mv {save_path} {gen_dir_path}")
+
+    gen_counter += 1
