@@ -5,7 +5,7 @@
 #################################
 
 # Number of iterations for auto-leela
-num_iterations = 2500
+games_per_generation = 2500
 
 # Path to LZO - general directory
 LZO = "/media/heathcliff/LZO"
