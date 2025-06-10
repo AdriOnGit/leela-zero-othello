@@ -69,13 +69,14 @@ for file in os.listdir(directory):
         max_num = current_number
 max_num+=1
 
-for i in range(max_num, max_num+games_per_generation):
+for i in range(max_num, max_num + games_per_generation):
     # Start the subprocess
     print(f'Running game number {i}')
     p = subprocess.Popen(
-        [leelaz, '-v', '150', '-r5', '--noponder', '-q', '-m10', '-n', '-w', network],
+        [leelaz, '-w', network] + leelaz_args,
         stdout=subprocess.PIPE,
         stdin=subprocess.PIPE,
+        bufsize=1,
         text=True
     )
     skip_credentials(p)
@@ -143,20 +144,22 @@ for i in range(max_num, max_num+games_per_generation):
     print("Winner: "+ (winner))
     assert winner == 'w' or winner == 'b'
 
+    # Prints the sgf file of the match
+    command = f'printsgf {i}_al.sgf\n'
+    p.stdin.write(command)
+    p.stdin.flush()
+
     # Send the dump_training command
     command = f'dump_training {winner} tmp{i}\n'
     #print(command)
     p.stdin.write(command)
     p.stdin.flush()
 
-    # Prints the sgf file of the match
-    command = f'printsgf {i}_al.sgf\n'
-    p.stdin.write(command)
-    p.stdin.flush()
-
     # Quit Leela Zero
     p.stdin.write('quit\n')
     p.stdin.flush()
+
+    time.sleep(0.5)
 
     # Edits the SGF
     sgf_edit(f"{i}_al.sgf", num_moves)
