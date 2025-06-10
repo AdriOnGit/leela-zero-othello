@@ -46,7 +46,7 @@ os.makedirs(leela_files, exist_ok=True)
 # Creates the Training directory
 os.makedirs(dirname, exist_ok=True)
 directory = os.fsencode(dirname)
-max = 0
+max_num = 0
 
 # Cretes the sgf archives directory
 os.makedirs(sgf_archive, exist_ok=True)
@@ -65,13 +65,13 @@ for file in os.listdir(directory):
     assert begin!=-1 and end!=-1
     current_number=int(filename[begin:end])
     # print(f"{current_number} "+filename)
-    if current_number > max:
-        max=current_number
-max+=1
+    if current_number > max_num:
+        max_num = current_number
+max_num+=1
 
-for i in range(max, max+num_iterations):
+for i in range(max_num, max_num+games_per_generation):
     # Start the subprocess
-    print(f'Running iteration number {i}')
+    print(f'Running game number {i}')
     p = subprocess.Popen(
         [leelaz, '-v', '150', '-r5', '--noponder', '-q', '-m10', '-n', '-w', network],
         stdout=subprocess.PIPE,
@@ -166,7 +166,7 @@ time.sleep(10)
 # Copies the matches in Training
 os.system(f"cp tmp* {dirname}")
 # Creates the directory to zip for the matches
-matches_dir = f"{(max + num_iterations - 1)}_iter"
+matches_dir = f"{(max_num + games_per_generation - 1)}_iter"
 full_path = os.path.join(archive_path, matches_dir)
 os.makedirs(full_path, exist_ok=True)
 # Moves the matches into the new directory
@@ -177,7 +177,7 @@ os.system(f"cd {archive_path} && tar -czf {matches_dir}.tar.gz {matches_dir}")
 os.system(f"rm -r {full_path}")
 
 # Creates the directory to zip for the sgf files 
-sgf_dir = f"{(max+num_iterations - 1)}_al_sgf"
+sgf_dir = f"{(max_num + games_per_generation - 1)}_al_sgf"
 full_path = os.path.join(al_sgf, sgf_dir)
 os.makedirs(full_path, exist_ok=True)
 # Moves the matches into the new directory
@@ -188,8 +188,8 @@ os.system(f"cd {al_sgf} && tar -czf {sgf_dir}.tar.gz {sgf_dir}")
 os.system(f"rm -r {full_path}")
 
 
-if(max>=12500):
-    for i in range(max-12500,max-10000):
+if(max_num>=12500):
+    for i in range(max_num-12500, max_num-10000):
        os.unlink(dirname+f"/tmp{i}.0.gz") 
 
 print("Finished")
