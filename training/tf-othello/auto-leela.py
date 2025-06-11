@@ -40,37 +40,9 @@ def play(process, turn_player):
             break
     return new_move
 
-# Creates the leela_files directory
-os.makedirs(leela_files, exist_ok=True)
 
-# Creates the Training directory
-os.makedirs(dirname, exist_ok=True)
 
-# Creates the sgf archives directory
-os.makedirs(sgf_archive, exist_ok=True)
-os.makedirs(al_sgf, exist_ok=True)
-
-# Collect list of files both in Training and in running directory
-dirlist = os.listdir(dirname) + os.listdir(".")
-
-# Select dump_training files of format tmp1234.0.gz, get the number and make a list
-# Add 0 to deal with empty directory at the beginning
-nums = [0] + [int(x.replace("tmp", "").replace(".0.gz", "")) for x in dirlist if x.endswith(".0.gz")]
-
-max_num = max(nums)
-print(f"Current number of games {max_num}.")
-
-current_gen   = max_num // games_per_generation
-missing_games = -max_num % games_per_generation
-games_to_play = missing_games or games_per_generation
-target_games  = max_num + games_to_play
-
-print(f"Starting {games_to_play} games for generation {current_gen+1}.")
-game_indices  = range(max_num+1, target_games+1)
-
-for i in game_indices:
-    # Start the subprocess
-    print(f'Running game number {i}')
+def run_game(i):
     p = subprocess.Popen(
         [leelaz, '-w', network] + leelaz_args,
         stdout=subprocess.PIPE,
@@ -123,8 +95,8 @@ for i in game_indices:
     final_score= p.stdout.readline()
     #print("Final score is "+final_score)
     if(winner==''):
-        print(f"Victory by double pass after {num_moves} moves")
-        print(final_score)
+        # print(f"Victory by double pass after {num_moves} moves")
+        # print(final_score)
         winner='b'
         if 'W' in final_score:
             winner='w'
@@ -140,7 +112,7 @@ for i in game_indices:
 
     # # Determine the winner
     # winner = line[16].lower()
-    print("Winner: "+ (winner))
+    # print("Winner: "+ (winner))
     assert winner == 'w' or winner == 'b'
 
     # Prints the sgf file of the match
@@ -162,8 +134,49 @@ for i in game_indices:
 
     # Edits the SGF
     sgf_edit(f"{i}_al.sgf", num_moves)
+    return winner
 
-time.sleep(2)
+
+# Creates the leela_files directory
+os.makedirs(leela_files, exist_ok=True)
+
+# Creates the Training directory
+os.makedirs(dirname, exist_ok=True)
+
+# Creates the sgf archives directory
+os.makedirs(sgf_archive, exist_ok=True)
+os.makedirs(al_sgf, exist_ok=True)
+
+# Collect list of files both in Training and in running directory
+dirlist = os.listdir(dirname) + os.listdir(".")
+
+# Select dump_training files of format tmp1234.0.gz, get the number and make a list
+# Add 0 to deal with empty directory at the beginning
+nums = [0] + [int(x.replace("tmp", "").replace(".0.gz", "")) for x in dirlist if x.endswith(".0.gz")]
+
+max_num = max(nums)
+print(f"Current number of games {max_num}.")
+
+current_gen   = max_num // games_per_generation
+missing_games = -max_num % games_per_generation
+games_to_play = missing_games or games_per_generation
+target_games  = max_num + games_to_play
+
+print(f"Starting {games_to_play} games for generation {current_gen+1}.")
+game_indices  = range(max_num+1, target_games+1)
+
+start = time.perf_counter()
+
+for i in game_indices:
+    # Start the subprocess
+    winner = run_game(i)
+    print(f"✓ finished game {i}  (winner: {winner})")
+
+elapsed = time.perf_counter() - start
+
+print(f"All games finished. Elapsed: {elapsed:g} seconds")
+print(f"{elapsed/games_to_play:g} seconds per game")
+
 
 # Copies the matches in Training
 os.system(f"cp tmp* {dirname}")
