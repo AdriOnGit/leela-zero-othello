@@ -189,9 +189,11 @@ os.system(f"cd {al_sgf} && tar -czf {sgf_dir}.tar.gz {sgf_dir}")
 # Deletes the zip directory
 os.system(f"rm -r {full_path}")
 
-
-if(max_num>=12500):
-    for i in range(max_num-12500, max_num-10000):
-       os.unlink(dirname+f"/tmp{i}.0.gz") 
+out_of_window = target_games - games_per_generation * training_window
+if(out_of_window > 0):
+    for s in os.listdir(dirname):
+        if s.endswith(".0.gz"):
+            if int(s.replace("tmp", "").replace(".0.gz", "")) <= out_of_window:
+                os.unlink(os.path.join(dirname, s))
 
 print("Finished")
