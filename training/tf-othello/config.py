@@ -6,6 +6,28 @@
 
 # Number of iterations for auto-leela
 games_per_generation = 2500
+max_parallel         = 4
+training_window      = 5
+visits               = 150
+random_moves         = 10
+resign_pct           = 5
+# puct                 = 0.5
+# logpuct              = 0.015
+# logconst             = 1.7
+# softmax_temp         = 1.0
+# fpu_reduction        = 0.25
+# ci_alpha             = 1e-5f
+
+leelaz_args = ['-v', str(visits),
+               '-r', str(resign_pct),
+               '-m', str(random_moves),
+               # '--puct', str(puct),
+               # '--logpuct', str(logpuct),
+               # '--logconst', str(logconst),
+               # '--softmax_temp', str(softmax_temp),
+               # '--fpu_reduction', str(fpu_reduction),
+               # '--ci_alpha' , str(ci_alpha),
+               '--noponder', '-n', '-q']
 
 # Path to LZO - general directory
 LZO = "/media/heathcliff/LZO"
