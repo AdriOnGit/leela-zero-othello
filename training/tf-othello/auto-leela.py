@@ -45,31 +45,30 @@ os.makedirs(leela_files, exist_ok=True)
 
 # Creates the Training directory
 os.makedirs(dirname, exist_ok=True)
-directory = os.fsencode(dirname)
-max_num = 0
 
-# Cretes the sgf archives directory
+# Creates the sgf archives directory
 os.makedirs(sgf_archive, exist_ok=True)
 os.makedirs(al_sgf, exist_ok=True)
 
-for file in os.listdir(directory):
-    filename= os.fsdecode(file)
-    begin=-1
-    end=-1
-    for char_n in range(len(filename)):
-        if filename[char_n].isnumeric() and begin==-1:
-            begin=char_n
-        if begin!=-1 and not filename[char_n].isnumeric():
-            end=char_n
-            break
-    assert begin!=-1 and end!=-1
-    current_number=int(filename[begin:end])
-    # print(f"{current_number} "+filename)
-    if current_number > max_num:
-        max_num = current_number
-max_num+=1
+# Collect list of files both in Training and in running directory
+dirlist = os.listdir(dirname) + os.listdir(".")
 
-for i in range(max_num, max_num + games_per_generation):
+# Select dump_training files of format tmp1234.0.gz, get the number and make a list
+# Add 0 to deal with empty directory at the beginning
+nums = [0] + [int(x.replace("tmp", "").replace(".0.gz", "")) for x in dirlist if x.endswith(".0.gz")]
+
+max_num = max(nums)
+print(f"Current number of games {max_num}.")
+
+current_gen   = max_num // games_per_generation
+missing_games = -max_num % games_per_generation
+games_to_play = missing_games or games_per_generation
+target_games  = max_num + games_to_play
+
+print(f"Starting {games_to_play} games for generation {current_gen+1}.")
+game_indices  = range(max_num+1, target_games+1)
+
+for i in game_indices:
     # Start the subprocess
     print(f'Running game number {i}')
     p = subprocess.Popen(
@@ -164,7 +163,7 @@ for i in range(max_num, max_num + games_per_generation):
     # Edits the SGF
     sgf_edit(f"{i}_al.sgf", num_moves)
 
-time.sleep(10)
+time.sleep(2)
 
 # Copies the matches in Training
 os.system(f"cp tmp* {dirname}")
