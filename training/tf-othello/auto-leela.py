@@ -3,6 +3,10 @@ import os
 import time
 from config import *
 
+# imports for multithread execution
+from concurrent.futures import ThreadPoolExecutor, as_completed
+
+
 def wait_for_prompt(process):
     line=process.stdout.read(7)
 def skip_credentials(process):
@@ -41,8 +45,10 @@ def play(process, turn_player):
     return new_move
 
 
+def run_game(i, delay=None):
+    if delay:
+        time.sleep(delay)
 
-def run_game(i):
     p = subprocess.Popen(
         [leelaz, '-w', network] + leelaz_args,
         stdout=subprocess.PIPE,
@@ -134,7 +140,7 @@ def run_game(i):
 
     # Edits the SGF
     sgf_edit(f"{i}_al.sgf", num_moves)
-    return winner
+    return i, winner
 
 
 # Creates the leela_files directory
@@ -164,20 +170,25 @@ target_games  = max_num + games_to_play
 
 print(f"Starting {games_to_play} games for generation {current_gen+1}.")
 game_indices  = range(max_num+1, target_games+1)
+print(f"Up to {max_parallel} games to be played in parallel.")
+delays = len(game_indices) * [None]
+delays[0:max_parallel] = [i*0.2 for i in range(max_parallel)]
 
 start = time.perf_counter()
 
-for i in game_indices:
-    # Start the subprocess
-    winner = run_game(i)
-    print(f"✓ finished game {i}  (winner: {winner})")
+with ThreadPoolExecutor(max_workers=max_parallel) as pool:
+    futures = {pool.submit(run_game, i, wait): i for (i, wait) in zip(game_indices, delays)}
+
+    for f in as_completed(futures):
+        i, winner = f.result()
+        print(f"✓ finished game {i}  (winner: {winner})")
 
 elapsed = time.perf_counter() - start
 
 print(f"All games finished. Elapsed: {elapsed:g} seconds")
 print(f"{elapsed/games_to_play:g} seconds per game")
 
-
+print("Tidying up files...")
 # Copies the matches in Training
 os.system(f"cp tmp* {dirname}")
 # Creates the directory to zip for the matches
