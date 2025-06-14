@@ -4,16 +4,19 @@
 ##     SETTINGS TO CHANGE
 #################################
 
+blocks               = 20
+filters              = 256
+
 # Number of iterations for auto-leela
-games_per_generation = 2500
+games_per_generation = 1600      # 2500
 max_parallel         = 4
-training_window      = 5
-visits               = 150
-random_moves         = 10
+training_window      = "auto"    # 5
+visits               = 300       # 150
+random_moves         = 25        # 10
 resign_pct           = 5
-# puct                 = 0.5
-# logpuct              = 0.015
-# logconst             = 1.7
+puct                 = 1.5       # 0.5
+logpuct              = 0.001     # 0.015
+logconst             = 2         # 1.7
 # softmax_temp         = 1.0
 # fpu_reduction        = 0.25
 # ci_alpha             = 1e-5f
@@ -21,32 +24,35 @@ resign_pct           = 5
 leelaz_args = ['-v', str(visits),
                '-r', str(resign_pct),
                '-m', str(random_moves),
-               # '--puct', str(puct),
-               # '--logpuct', str(logpuct),
-               # '--logconst', str(logconst),
+               '--puct', str(puct),
+               '--logpuct', str(logpuct),
+               '--logconst', str(logconst),
                # '--softmax_temp', str(softmax_temp),
                # '--fpu_reduction', str(fpu_reduction),
                # '--ci_alpha' , str(ci_alpha),
                '--noponder', '-n', '-q']
 
 # Path to LZO - general directory
-LZO = "/media/heathcliff/LZO"
+LZO = "/mnt/d/lzo"
+LZO_ = "D:\lzo"
 
 #################################
 #################################
 
 # leela_files path
 leela_files = LZO + "/leela_files"
+leela_files_ = LZO_ + "\leela_files"
 # training scripts path
-tf_othello = leela_files + "/leela-zero-othello/training/tf-othello"
+tf_othello = "/home/cs-project/repo/leela-zero-othello/training/tf-othello"
 # best-network weights path
-network = leela_files + "/current_promoted/best-network.txt"
+network = leela_files_ + "\\current_promoted\\best-network.gz"
 # general best-network files path
-best_network = leela_files + "/current_promoted/best-network"
+best_network = leela_files + "/current_promoted/best-network.gz"
 # leelaz program path
-leelaz = LZO + "/leelaz"
+leelaz = LZO + "/bin/leelaz.exe"
 # Training directory path
 dirname = leela_files + "/Training"
+test_dir = leela_files + "/Test"
 # training archives path
 archive_path = leela_files + "/archived_training"
 # general white_networks directory path
@@ -60,6 +66,7 @@ save_gen_dir = leela_files + "/network_generations"
 
 # sgf archives path
 sgf_archive = leela_files + "/archived_sgf"
+sgf_archive_ = leela_files_ + "\archived_sgf"
 # auto_leela sgf archive
 al_sgf = sgf_archive + "/auto_leela_sgf"
 # autoplay sgf archive

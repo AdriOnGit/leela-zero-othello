@@ -24,6 +24,8 @@ import time
 import unittest
 from config import *
 
+MICROBATCHES = 4
+
 from mixprec import float32_variable_storage_getter, LossScalingOptimizer
 
 def weight_variable(name, shape, dtype):
@@ -193,7 +195,7 @@ class TFProcess:
         # You need to change the learning rate here if you are training
         # from a self-play training set, for example start with 0.005 instead.
         opt = tf.train.MomentumOptimizer(
-            learning_rate=0.005, momentum=0.9, use_nesterov=True)
+            learning_rate=0.02/MICROBATCHES, momentum=0.9, use_nesterov=True)
 
         opt = LossScalingOptimizer(opt, scale=self.loss_scale)
 
@@ -427,7 +429,7 @@ class TFProcess:
                 'accuracy': r[3], 'total': r[0]+r[1]+r[2] }
 
     def process(self, train_data, test_data):
-        info_steps=1000
+        info_steps=100
         stats = Stats()
         timer = Timer()
 
@@ -473,7 +475,7 @@ class TFProcess:
                         test_stats.mean('accuracy')*100.0,
                         test_stats.mean('mse')))
 
-            if steps % 3000 == 0:
+            if steps % (1000 * MICROBATCHES) == 0:
                 # Write out current model and checkpoint
                 # path = os.path.join(os.getcwd(), "leelaz-model")
                 save_path = self.saver.save(self.session, path,
@@ -491,7 +493,7 @@ class TFProcess:
                 save_path = self.saver.save(self.session, path,
                                             global_step=steps)
                 print("Model saved in file: {}".format(save_path))
-            if steps==(start_step+9000):
+                # if steps==(start_step+9000):
                 exit("Enough training data obtained")
 
     def save_leelaz_weights(self, filename):

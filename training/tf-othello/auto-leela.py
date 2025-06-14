@@ -154,7 +154,7 @@ os.makedirs(sgf_archive, exist_ok=True)
 os.makedirs(al_sgf, exist_ok=True)
 
 # Collect list of files both in Training and in running directory
-dirlist = os.listdir(dirname) + os.listdir(".")
+dirlist = os.listdir(dirname) + os.listdir(test_dir) + os.listdir(".")
 
 # Select dump_training files of format tmp1234.0.gz, get the number and make a list
 # Add 0 to deal with empty directory at the beginning
@@ -189,35 +189,27 @@ print(f"All games finished. Elapsed: {elapsed:g} seconds")
 print(f"{elapsed/games_to_play:g} seconds per game")
 
 print("Tidying up files...")
-# Copies the matches in Training
-os.system(f"cp tmp* {dirname}")
-# Creates the directory to zip for the matches
-matches_dir = f"{(max_num + games_per_generation - 1)}_iter"
-full_path = os.path.join(archive_path, matches_dir)
-os.makedirs(full_path, exist_ok=True)
-# Moves the matches into the new directory
-os.system(f"mv tmp* {full_path}")
-# Zips the directory
-os.system(f"cd {archive_path} && tar -czf {matches_dir}.tar.gz {matches_dir}")
-# Deletes the zip directory
-os.system(f"rm -r {full_path}")
 
-# Creates the directory to zip for the sgf files 
-sgf_dir = f"{(max_num + games_per_generation - 1)}_al_sgf"
-full_path = os.path.join(al_sgf, sgf_dir)
-os.makedirs(full_path, exist_ok=True)
-# Moves the matches into the new directory
-os.system(f"mv *.sgf {full_path}")
-# Zips the directory
-os.system(f"cd {al_sgf} && tar -czf {sgf_dir}.tar.gz {sgf_dir}")
-# Deletes the zip directory
-os.system(f"rm -r {full_path}")
+# Zip the sgfs and remove them
+full_path = os.path.join(al_sgf, f"{current_gen+1}_gen")
+os.system(f"tar -czf {full_path}.tar.gz *.sgf --remove-files")
 
+# Zip the training data
+full_path = os.path.join(archive_path, f"{current_gen+1}_gen")
+os.system(f"tar -cf {full_path}.tar *.0.gz")
+
+# Move the training data in Training and Test
+os.system(f"mv tmp* {dirname}")
+os.system(f"mv {dirname}/*0.0.gz {test_dir}")
+
+if training_window=='auto':
+    training_window = min(10, (current_gen+2) // 6 + 1)
 out_of_window = target_games - games_per_generation * training_window
 if(out_of_window > 0):
-    for s in os.listdir(dirname):
-        if s.endswith(".0.gz"):
-            if int(s.replace("tmp", "").replace(".0.gz", "")) <= out_of_window:
-                os.unlink(os.path.join(dirname, s))
+    for directory in [dirname, test_dir]:
+        for s in os.listdir(directory):
+            if s.endswith(".0.gz"):
+                if int(s.replace("tmp", "").replace(".0.gz", "")) <= out_of_window:
+                    os.unlink(os.path.join(directory, s))
 
 print("Finished")

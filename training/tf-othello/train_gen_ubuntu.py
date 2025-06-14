@@ -1,24 +1,29 @@
 import os
 import subprocess
-import shutil
+import time
 from config import *
 
-# Number of iterations for the script
-num_iterations=5
-
-for i in range(num_iterations):
-	shutil.rmtree(white_networks, ignore_errors=True)
-	os.makedirs(white_networks, exist_ok=True)
-
+while True:
 	# Run auto-leela
-	subprocess.run(['python', auto_leela])
+        subprocess.run(['python', auto_leela])
 
-	# Check if this is first generation, then run parse.py accordingly
-	num_generations = len([f for f in os.listdir(save_gen_dir) if f[0].isdigit()])
-	if (num_generations == 0):
-		subprocess.run(['python', parse, '10','128', os.path.join(dirname, "/tmp")])
-	else:
-		subprocess.run(['python', parse, '10','128', os.path.join(dirname, "/tmp"), best_network])
+        curr_gen = int(max(os.listdir(save_gen_dir), key=int))
+        curr_gen_dir = os.path.join(save_gen_dir, str(curr_gen))
+        last_model = [s for s in os.listdir(curr_gen_dir)
+                      if s.endswith("meta")][0].replace(".meta", "")
+        
+        parse_args = ["--blocks", str(blocks),
+                      "--filters", str(filters),
+                      "--train", os.path.join(dirname, ""),
+                      "--test", os.path.join(test_dir, ""),
+                      "--restore", os.path.join(curr_gen_dir, last_model)]
+        subprocess.run(['python', parse] + parse_args)
 
-	# Run autoplay-best
-	subprocess.run(['python', autoplay_best])
+        os.system(f"gzip {white_networks}/leelaz-model-*.txt")
+        os.system(f"cp {white_networks}/leelaz-model-*.txt.gz {best_network}")
+        new_gen_dir = os.path.join(save_gen_dir, str(curr_gen+1))
+        os.makedirs(new_gen_dir)
+        os.system(f"mv {white_networks}/* {new_gen_dir}")
+
+        print(f"Network for generation {curr_gen+1} is ready. Starting self-plays in 10 seconds.")
+        time.sleep(10)
