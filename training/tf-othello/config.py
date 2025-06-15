@@ -1,3 +1,5 @@
+import os
+
 # Config file to set paths and iteration numbers
 
 #################################
@@ -14,6 +16,7 @@ training_window      = "auto"    # 5
 visits               = 300       # 150
 random_moves         = 25        # 10
 resign_pct           = 5
+resign_pct_match     = 1
 puct                 = 1.5       # 0.5
 logpuct              = 0.001     # 0.015
 logconst             = 2         # 1.7
@@ -32,16 +35,34 @@ leelaz_args = ['-v', str(visits),
                # '--ci_alpha' , str(ci_alpha),
                '--noponder', '-n', '-q']
 
+match_args  = ['-r', str(resign_pct_match),
+               '--puct', str(puct),
+               '--logpuct', str(logpuct),
+               '--logconst', str(logconst),
+               # '--softmax_temp', str(softmax_temp),
+               # '--fpu_reduction', str(fpu_reduction),
+               # '--ci_alpha' , str(ci_alpha),
+               '--noponder', '-g', '-q']
+
+
 # Path to LZO - general directory
 LZO = "/mnt/d/lzo"
-LZO_ = "D:\lzo"
+LZO_ = "D:\\lzo"
 
 #################################
 #################################
+
+rundir    = os.path.join(LZO, "run")
+edax      = os.path.join(LZO, "bin", "edax")
+kalmia    = os.path.join(LZO, "bin", "kalmia")
+egaroucid = os.path.join(LZO, "bin", "egaroucid")
+
+results_root = LZO + "/results"    # where results/SGFs are stored
+
 
 # leela_files path
 leela_files = LZO + "/leela_files"
-leela_files_ = LZO_ + "\leela_files"
+leela_files_ = LZO_ + "\\leela_files"
 # training scripts path
 tf_othello = "/home/cs-project/repo/leela-zero-othello/training/tf-othello"
 # best-network weights path
@@ -63,6 +84,7 @@ path = white_networks + "/leelaz-model"
 leela_logs = leela_files + "/leelalogs"
 # network archives path
 save_gen_dir = leela_files + "/network_generations"
+save_gen_dir_ = leela_files_ + "\\network_generations"
 
 # sgf archives path
 sgf_archive = leela_files + "/archived_sgf"
